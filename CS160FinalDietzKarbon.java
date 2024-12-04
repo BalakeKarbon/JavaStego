@@ -18,7 +18,7 @@ public class CS160FinalDietzKarbon {
 			//System.out.println(imgData.getMinX() + " " + imgData.getMinY() + " " + imgData.getWidth() + " " + imgData.getHeight());
 			
 		} catch (IOException e) {
-			System.out.println("error");
+			System.out.println("test");
 		}
 	}
 }
