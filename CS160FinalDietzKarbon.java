@@ -33,13 +33,11 @@ public class CS160FinalDietzKarbon {
 			for(int x = 0;x<(containerImg.getWidth());x++) {
 				for(int y = 0;y<(containerImg.getHeight());y++) {
 					System.out.print(" ");
+					int colorInt = containerImg.getRGB(x,y);
+					int[] pixelColor = new int[pixelByteCount];
 					for(int c = 0;c<pixelByteCount;c++) {
-						int colorInt = containerImg.getRGB(x,y);
-						int[] pixelColor = new int[pixelByteCount];
-						for(int i = 0;i<pixelByteCount;i++) {
-							pixelColor[i]=(colorInt & (0xff << (i*8))) >> (i * 8);
-						}
-						System.out.print(pixelColor[0] + ",");
+						pixelColor[c]=(colorInt & (0xff << (c*8))) >> (c * 8);
+						System.out.printf("%02X",pixelColor[c]);
 					}
 				}
 				System.out.println("");
