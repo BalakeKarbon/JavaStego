@@ -38,6 +38,7 @@ public class CS160FinalDietzKarbon {
 					for(int c = 0;c<pixelByteCount;c++) {
 						pixelColor[c]=(colorInt & (0xff << (c*8))) >> (c * 8);
 						System.out.printf("%02X",pixelColor[c]);
+						//Modify here and re write to new BufferedImage in order to save for later!
 					}
 				}
 				System.out.println("");
