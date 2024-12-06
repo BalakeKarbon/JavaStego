@@ -42,11 +42,18 @@ public class CS160FinalDietzKarbonWriter {
 		// TO-DO: Add the ability to specify a end of message modifier for recognition by the reader.
 		boolean dataFits = false;
 		byte[] secretData = new byte[0];
+		byte[] inputData = new byte[0];
 		while(!dataFits) {
 			System.out.print("Please enter data to encode:");
-			secretData = scnr.nextLine().getBytes(Charset.forName("UTF-8"));
-			if(secretData.length<=bytesOfStorage) {
+			inputData = scnr.nextLine().getBytes(Charset.forName("UTF-8"));
+			if(secretData.length<=(bytesOfStorage-2)) { // 2 bytes needed for delimeter!
 				dataFits = true;
+				secretData = new byte[inputData.length+2];
+				for(int i = 0;i<inputData.length;i++) {
+					secretData[i]=inputData[i];
+				}
+				secretData[secretData.length-2] = 0x04; // EOT or end of transmission character in UTF-8/ASCII;
+				secretData[secretData.length-1] = 0x04;
 			} else {
 				System.out.println("Data does not fit withing the available storage!");
 			}
@@ -144,12 +151,14 @@ public class CS160FinalDietzKarbonWriter {
 		//Decode data
 		int currentPixelColor;
 		int secretDataShift = 0;
-		for(int x = 0;x<containerImg.getWidth();x++) {
-			for(int y = 0;y<containerImg.getHeight();y++) {
+		byte lastByte = 0x00;
+		boolean decoded = false;
+		for(int x = 0;x<containerImg.getWidth() && !decoded;x++) {
+			for(int y = 0;y<containerImg.getHeight() && !decoded;y++) {
 				int currentPixelOffset = (x*containerImg.getWidth())+y;
 				int containerImgByteOffset = currentPixelOffset*bytesPerPixel;
 				currentPixelColor = containerImg.getRGB(x,y);
-				for(int colorComponentIndex = 0;colorComponentIndex<bytesPerPixel;colorComponentIndex++) {
+				for(int colorComponentIndex = 0;colorComponentIndex<bytesPerPixel && !decoded;colorComponentIndex++) {
 					int colorComponentIndexShift = colorComponentIndex * 8;
 					byte colorComponent = Integer.valueOf(currentPixelColor >> (colorComponentIndex*8)).byteValue(); // This gets the color component by shifting the currentPixelColor integer 8*colorComponentIndex bits and then converting to a byte therebye cutting off the top 24 bits.
 					int containerImgByteIndex = (containerImgByteOffset+colorComponentIndex);
@@ -160,6 +169,12 @@ public class CS160FinalDietzKarbonWriter {
 					secretDataShift+=bitsPerByte;
 					if(secretDataShift>7) {
 						secretDataShift = 0;
+						if(secretData[secretDataByteIndex] == 0x04 && lastByte == 0x04) {
+							decoded = true;
+							System.out.println("Decoded message:");
+							break;
+						}
+						lastByte = secretData[secretDataByteIndex];
 					}
 				}
 			}
