@@ -12,7 +12,7 @@ public class CS160FinalDietzKarbonWriter {
 		BufferedImage containerImg = new BufferedImage(1,1,BufferedImage.TYPE_INT_ARGB);
 		while(!fileAttained) {
 			System.out.print("Path:");
-			path = scnr.next(); //Next Line?
+			path = scnr.nextLine();
 			try {
 				containerImg = ImageIO.read(new File(path));
 			} catch (IOException e) {
@@ -52,6 +52,23 @@ public class CS160FinalDietzKarbonWriter {
 		}
 		return secretData;
 	}
+	public static void writeEncodedImage(Scanner scnr, BufferedImage containerImg) {
+		boolean wroteImage = false;
+		String path;
+		while(!wroteImage) {
+			System.out.print("Path:");
+			path = scnr.nextLine();
+			try {
+				File outputFile = new File(path);
+				ImageIO.write(containerImg, "png", outputFile);
+				System.out.println("Encoded PNG saved at \""+path+"\"!");
+				wroteImage = true;
+			} catch (IOException e) {
+				System.out.println(e.getMessage());
+				continue;
+			}
+		}
+	}
 	public static void main(String args[]) {
 		Scanner scnr = new Scanner(System.in);
 		System.out.println("What PNG would you like to store your secred data in?");
@@ -66,7 +83,7 @@ public class CS160FinalDietzKarbonWriter {
 		int currentPixelColor, newPixelColor;
 		int pixelColorMask = Integer.valueOf((1 << (bytesPerPixel*8)) - 1).byteValue();
 		boolean stillData = true;
-		System.out.println(""); // TEMPORARY
+		//System.out.println(""); // TEMPORARY
 		for(int x = 0;x<containerImg.getWidth() && stillData;x++) {
 			for(int y = 0;y<containerImg.getHeight() && stillData;y++) {
 				int currentPixelOffset = (x*containerImg.getWidth())+y;
@@ -101,13 +118,16 @@ public class CS160FinalDietzKarbonWriter {
 					int newPixelColorMask = ~newColorComponentMask;
 					newPixelColor = (newPixelColor & newPixelColorMask) | ((newColorComponent << colorComponentIndexShift) & newColorComponentMask);
 				}
-				System.out.printf("%02X->%02X",currentPixelColor,newPixelColor);
+				//System.out.printf("%02X->%02X",currentPixelColor,newPixelColor);
 				//System.out.print(Integer.toBinaryString(currentPixelColor)+"-");
 				//System.out.print(Integer.toBinaryString(newPixelColor));
-				System.out.print(","); // TEMPORARY
+				//System.out.print(","); // TEMPORARY
+				containerImg.setRGB(x,y,newPixelColor);
 			}
-			System.out.println(""); // TEMPORARY
+			//System.out.println(""); // TEMPORARY
 		}
 		// THEN write to output file.
+		System.out.println("What file would you like to save this encoded PNG to?");
+		writeEncodedImage(scnr, containerImg);	
 	}
 }
