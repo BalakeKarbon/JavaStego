@@ -152,12 +152,12 @@ public class CS160FinalDietzKarbonWriter {
 					int secretDataByteIndex = (containerImgByteIndex*bitsPerByte)/8;
 					byte secretDataMask = Integer.valueOf((1<<bitsPerByte)-1).byteValue();
 					int containerImgIndex = containerImgByteOffset+colorComponentIndex;
-					System.out.print(Integer.toBinaryString(secretData[secretDataByteIndex]) + ":");
+					//System.out.print("C:"+Integer.toBinaryString(secretData[secretDataByteIndex])+",S:"+Integer.toBinaryString((colorComponent & secretDataMask) << secretDataShift)+"\n");
 					secretData[secretDataByteIndex] = Integer.valueOf(secretData[secretDataByteIndex] | ((colorComponent & secretDataMask)<<secretDataShift)).byteValue();
 					secretDataShift+=bitsPerByte;
 					if(secretDataShift>7) {
 						secretDataShift = 0;
-						System.out.print((char)secretData[secretDataByteIndex]);
+						System.out.print((char)(secretData[secretDataByteIndex] & 0xFF));
 					}
 					//System.out.print("("+ containerImgByteIndex +","+ secretDataByteIndex +")");
 					//System.out.printf("%02X",colorComponent);
