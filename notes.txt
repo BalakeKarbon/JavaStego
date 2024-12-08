@@ -15,5 +15,10 @@ Testing with nums.py output for filling bike.png:
 The relationship between these is exponential as they double every bit introduced. This means for all of these it is failing at the same point
 
 9846720 iterations with all enabled. WHICH IS CORRECT ENTIRE IMAGE FOR Bike.png
+We are only missing 1369735 in 8 bit full encode. Which is about 1/7th or 14% ish.
 
 But somehow were only setting the secretDataByteIndex up to 318037 before it exits loop?
+
+When encoding numbers every number only appears once which is correct but it iterates through all bytes in image without getting full data.
+
+I think the encode AND decoder are both skipping something in the same way which makes the data come out correct but less dense which is strange.

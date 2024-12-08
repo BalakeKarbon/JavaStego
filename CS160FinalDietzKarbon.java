@@ -44,6 +44,7 @@ public class CS160FinalDietzKarbon {
 					case 8:
 						break;
 					default:
+						System.out.println("Value must be a power of 2!");
 						foundBits = false;
 				}
 			}
@@ -196,7 +197,7 @@ public class CS160FinalDietzKarbon {
 				}
 			}
 		}
-		//System.out.println(new String(secretData, StandardCharsets.US_ASCII)); // Better to use the one above because does not write entire array stops when desired.
+		System.out.println(new String(secretData, StandardCharsets.US_ASCII)); // Better to use the one above because does not write entire array stops when desired.
 		//System.out.println(decoded);
 	}
 	public static void main(String args[]) {
