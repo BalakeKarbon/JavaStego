@@ -194,8 +194,8 @@ public class CS160FinalDietzKarbon {
 				}
 			}
 		}
-		//System.out.println(decoded);
 		System.out.println(new String(secretData, StandardCharsets.US_ASCII)); // Better to use the one above because does not write entire array stops when desired.
+		System.out.println(decoded);
 	}
 	public static void main(String args[]) {
 		Scanner scnr = new Scanner(System.in);

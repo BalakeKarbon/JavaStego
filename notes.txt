@@ -1,0 +1,7 @@
+Testing with nums.py output for filling bike.png:
+4 bit full encode:
+	decode fails at last byte printed 3113741
+8 bit full encode:
+	decode fails at last byte printed 6250740
+
+Between both difference is 3136999 bytes?
