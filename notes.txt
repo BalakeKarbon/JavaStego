@@ -1,7 +1,19 @@
 Testing with nums.py output for filling bike.png:
+1 bit full encode:
+	decode fails at last byte printed 766531
+	Swapping getWidth for getHeight increased that to 1039131 ish.
+	191706 of 223657. missing 31951
+2 bit full encode:
+	decode fails at last byte printed 1548934:
+	SWP->2094135	
 4 bit full encode:
 	decode fails at last byte printed 3113741
+	SWP->4204149
 8 bit full encode:
 	decode fails at last byte printed 6250740
+	SWP->8476985
+The relationship between these is exponential as they double every bit introduced. This means for all of these it is failing at the same point
 
-Between both difference is 3136999 bytes?
+9846720 iterations with all enabled. WHICH IS CORRECT ENTIRE IMAGE FOR Bike.png
+
+But somehow were only setting the secretDataByteIndex up to 318037 before it exits loop?
