@@ -1,10 +1,14 @@
+import math
 size = 0;
-#limit = 9846720;
-limit = 4923360;
+#limit = math.floor(6220800*.85); #Travelall
+#limit = 6220800
+#limit = math.floor(9846720*.86);
+limit = 9846720-6;
+#limit = 4923360;
 #limit = 2461680;
 #limit = 1230840;
 i=0;
 while size < limit:
-    size = size + len(str(i+1))
+    size = size + (len(str(i))+1)
     print(i,end='-')
     i = i + 1

@@ -1,4 +1,6 @@
 d
 out.png
-8
+2
+f
+out.bmp
 

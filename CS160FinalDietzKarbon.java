@@ -1,12 +1,19 @@
 import java.util.Scanner;
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.InputMismatchException;
+import java.util.Arrays;
 
 public class CS160FinalDietzKarbon {
+	public static byte[] terminator = "END-OF-SECRET-DATA".getBytes(StandardCharsets.UTF_8);
 	public static BufferedImage getContainerImage(Scanner scnr) {
 		boolean fileAttained = false;
 		String path;
@@ -51,22 +58,53 @@ public class CS160FinalDietzKarbon {
 		}
 		return bitsPerByte;
 	}
+	public static byte[] getSecretFile(Scanner scnr) {
+		boolean fileAttained = false;
+		byte[] secretData = new byte[0];
+		String path;
+		while(!fileAttained) {
+			System.out.print("Path:");
+			path = scnr.nextLine();
+			try {
+				secretData = Files.readAllBytes(Paths.get(path));
+			} catch (IOException e) {
+				System.out.println(e.getMessage());
+				continue;
+			}
+			fileAttained = true;
+		}
+		return secretData;
+	}
 	public static byte[] getSecretData(Scanner scnr,long bytesOfStorage) {
 		// TO-DO: Add the ability to specify a end of message modifier for recognition by the reader.
+		//bytesOfStorage = (int)((double)bytesOfStorage * .8); // Error where 6/7 of data is encoded in image? Not sure why so for now this is the work around.
 		boolean dataFits = false;
 		byte[] secretData = new byte[0];
 		byte[] inputData = new byte[0];
 		while(!dataFits) {
-			System.out.print("Please enter data to encode:");
-			inputData = scnr.nextLine().getBytes(Charset.forName("UTF-8"));
-			if(secretData.length<=(bytesOfStorage-2)) { // 2 bytes needed for delimeter!
+			System.out.println("Would you like to encode a file or text into the PNG?");
+			char choice = '!';
+			while(choice == '!') {
+				System.out.print("Enter \"f\" for file or \"t\" for text:");
+				choice = scnr.nextLine().toLowerCase().charAt(0);
+				if(choice == 't') {
+					System.out.print("Please enter data to encode:");
+					inputData = scnr.nextLine().getBytes(Charset.forName("UTF-8"));
+				} else if(choice == 'f') {
+					inputData = getSecretFile(scnr);
+				} else {
+					choice = '!';
+				}
+			}
+			if(inputData.length<=(bytesOfStorage-terminator.length)) { // 2 bytes needed for delimeter!
 				dataFits = true;
-				secretData = new byte[inputData.length+2];
+				secretData = new byte[inputData.length+terminator.length];
 				for(int i = 0;i<inputData.length;i++) {
 					secretData[i]=inputData[i];
 				}
-				secretData[secretData.length-2] = 0x04; // EOT or end of transmission character in UTF-8/ASCII;
-				secretData[secretData.length-1] = 0x04;
+				for(int i = 0;i<terminator.length;i++) {
+					secretData[(secretData.length-1)-i] = terminator[(terminator.length-1)-i];
+				}
 			} else {
 				System.out.println("Data does not fit withing the available storage!");
 			}
@@ -143,15 +181,28 @@ public class CS160FinalDietzKarbon {
 					if(secretSliceIndex >= (8/bitsPerByte)) { //Can optimize this by having calc earlier.
 						secretSliceIndex=0;
 					}
-					//System.out.print("Byte Were Encoding: " + Integer.toBinaryString(secretData[secretDataByteIndex] & 0xff)+" ");
-					//System.out.print("Part Of Byte Were Encoding: " + Integer.toBinaryString(secretDataSlice & 0xff)+"");
-					//System.out.println();
+					/*System.out.print(containerImgByteIndex + "-" + secretDataByteIndex + " ");
+					System.out.print("Byte Were Encoding: " + Integer.toBinaryString(secretData[secretDataByteIndex] & 0xff)+"");
+					System.out.print("n" + Integer.toBinaryString(newColorComponent & 0xff)+"");
+					System.out.print("p" + Integer.toBinaryString(secretDataSlice & 0xff)+" ");
+					System.out.print(new String(new byte[]{Integer.valueOf(secretData[secretDataByteIndex] & 0xff).byteValue()}, StandardCharsets.US_ASCII)+" ");
+					System.out.print("Shift: " + Integer.toBinaryString(newColorComponentMask & 0xffffff) + " " + colorComponentIndexShift);
+					System.out.println();*/
+					//System.out.println(Integer.toBinaryString(newColorComponent & 0xff));
 				}
 				containerImg.setRGB(x,y,newPixelColor);
+				//System.out.println(Integer.toBinaryString(newPixelColor&0xffffff));
 			}
 		}
 		System.out.println("What file would you like to save this encoded PNG to?");
 		writeEncodedImage(scnr, containerImg);
+	}
+	public static FileOutputStream getOutputFile(Scanner scnr) throws IOException {
+		String path;
+		System.out.print("Path:");
+		path = scnr.nextLine();
+		FileOutputStream fos = new FileOutputStream(path);
+		return fos;
 	}
 	public static void stegDecode(Scanner scnr) {
 		System.out.println("What PNG would you like to decode?");
@@ -160,6 +211,7 @@ public class CS160FinalDietzKarbon {
 		int bitsPerByte = getBitsPerByte(scnr);
 		int bytesPerPixel = (containerImg.getAlphaRaster() != null) ? 4 : 3;
 		int bytesOfStorage = (containerImg.getWidth() * containerImg.getHeight() * bytesPerPixel * bitsPerByte)/8; // Possibly add printing how much storage is available.
+		scnr.nextLine();
 		//System.out.println("Bytes of storage!:" + bytesOfStorage);
 		byte[] secretData = new byte[bytesOfStorage];
 		//Decode data
@@ -167,6 +219,7 @@ public class CS160FinalDietzKarbon {
 		int secretDataShift = 0;
 		byte lastByte = 0x00;
 		boolean decoded = false;
+		int size = 0;
 		for(int x = 0;x<containerImg.getWidth() && !decoded;x++) {
 			for(int y = 0;y<containerImg.getHeight() && !decoded;y++) {
 				int currentPixelOffset = (x*containerImg.getHeight())+y;
@@ -182,13 +235,21 @@ public class CS160FinalDietzKarbon {
 					secretDataShift+=bitsPerByte;
 					if(secretDataShift>7) {
 						secretDataShift = 0;
-						if(secretData[secretDataByteIndex] == 0x04 && lastByte == 0x04) {
-							decoded = true;
-							break;
+						// TO-DO: Fix terminator!
+						if(size>terminator.length) {
+							byte[] newArray = Arrays.copyOfRange(secretData,(size-terminator.length),size);
+							//System.out.println(new String(newArray, StandardCharsets.US_ASCII)); // Better to use the one above because does not write entire array stops when desired.
+							//System.out.println(newArray.length + " vs " + terminator.length);
+							if(Arrays.equals(newArray,terminator)) {
+								decoded = true;
+								size = size-terminator.length;
+								break;
+							}
 						}
+						size++;
 						lastByte = secretData[secretDataByteIndex];
 						// TO-DO: When writing to file or screen delay output by number of bytes required for terminator because then you wont end up writing the terminator itself to the file or screen.
-						System.out.print(new String(new byte[]{lastByte}, StandardCharsets.US_ASCII));
+						//System.out.print(new String(new byte[]{secretData[secretDataByteIndex-2]}, StandardCharsets.US_ASCII));
 					}
 					//System.out.print(secretDataByteIndex + " " + containerImgByteIndex + " "); //DEBUG
 					//System.out.print(x + " " + y + " " + colorComponentIndex + " ");
@@ -196,6 +257,30 @@ public class CS160FinalDietzKarbon {
 				}
 			}
 		}
+		System.out.println("Would you like to decode to a file or text?");
+		char choice = '!';
+		while(choice == '!') {
+			System.out.print("Enter \"f\" for file or \"t\" for text:");
+			choice = scnr.nextLine().toLowerCase().charAt(0);
+			if(choice == 't') {
+				for(int i = 0;i<size;i++) {
+					System.out.print(new String(new byte[]{secretData[i]}, StandardCharsets.US_ASCII));
+				}
+			} else if(choice == 'f') {
+				try {
+					FileOutputStream outputFileStream = getOutputFile(scnr);
+					for(int i = 0;i<size;i++) {
+						outputFileStream.write(secretData[i]);
+					}
+					outputFileStream.close();
+				} catch (IOException e) {
+					System.out.println(e.getMessage());
+				}
+			} else {
+				choice = '!';
+			}
+		}
+		//System.out.println("DEBUG:" + size);
 		//System.out.println(new String(secretData, StandardCharsets.US_ASCII)); // Better to use the one above because does not write entire array stops when desired.
 		//System.out.println(decoded);
 	}
