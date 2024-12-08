@@ -13,7 +13,7 @@ import java.util.InputMismatchException;
 import java.util.Arrays;
 
 public class CS160FinalDietzKarbon {
-	public static byte[] terminator = "END-OF-SECRET-DATA".getBytes(StandardCharsets.UTF_8);
+	public static byte[] terminator = "END-OF-SECRET-DATA".getBytes(StandardCharsets.UTF_8); 
 	public static BufferedImage getContainerImage(Scanner scnr) {
 		boolean fileAttained = false;
 		String path;
@@ -76,8 +76,6 @@ public class CS160FinalDietzKarbon {
 		return secretData;
 	}
 	public static byte[] getSecretData(Scanner scnr,long bytesOfStorage) {
-		// TO-DO: Add the ability to specify a end of message modifier for recognition by the reader.
-		//bytesOfStorage = (int)((double)bytesOfStorage * .8); // Error where 6/7 of data is encoded in image? Not sure why so for now this is the work around.
 		boolean dataFits = false;
 		byte[] secretData = new byte[0];
 		byte[] inputData = new byte[0];
@@ -96,7 +94,7 @@ public class CS160FinalDietzKarbon {
 					choice = '!';
 				}
 			}
-			if(inputData.length<=(bytesOfStorage-terminator.length)) { // 2 bytes needed for delimeter!
+			if(inputData.length<=(bytesOfStorage-terminator.length)) {
 				dataFits = true;
 				secretData = new byte[inputData.length+terminator.length];
 				for(int i = 0;i<inputData.length;i++) {
@@ -128,30 +126,18 @@ public class CS160FinalDietzKarbon {
 			}
 		}
 	}
-	public static void printBytes(byte[] bytes) {
-		for(int i = 0;i<bytes.length;i++) {
-			System.out.print(Integer.toBinaryString(bytes[i]));
-			if(i!=bytes.length-1) {
-				System.out.print(",");
-			}
-		}
-		System.out.println();
-	}
 	public static void stegEncode(Scanner scnr) {
 		System.out.println("What PNG would you like to store your secred data in?");
 		BufferedImage containerImg = getContainerImage(scnr);
 		System.out.println("How many bits per byte would you like to encode (Must be a power of 2)?");
 		int bitsPerByte = getBitsPerByte(scnr);
 		int bytesPerPixel = (containerImg.getAlphaRaster() != null) ? 4 : 3;
-		long bytesOfStorage = (containerImg.getWidth() * containerImg.getHeight() * bytesPerPixel * bitsPerByte)/8; // Possibly add printing how much storage is available.
+		long bytesOfStorage = (containerImg.getWidth() * containerImg.getHeight() * bytesPerPixel * bitsPerByte)/8;
 		scnr.nextLine(); // Mention that this is due to weird scanner behavior.
 		byte[] secretData = getSecretData(scnr, bytesOfStorage);
-		//System.out.println("DEBUG: "+new String(secretData, StandardCharsets.US_ASCII));
 		int currentPixelColor, newPixelColor;
 		int pixelColorMask = Integer.valueOf((1 << (bytesPerPixel*8)) - 1).byteValue();
 		boolean stillData = true;
-		//System.out.println();
-		//printBytes(secretData);
 		int secretSliceIndex = 0;
 		for(int x = 0;x<containerImg.getWidth() && stillData;x++) {
 			for(int y = 0;y<containerImg.getHeight() && stillData;y++) {
@@ -166,11 +152,11 @@ public class CS160FinalDietzKarbon {
 					int secretDataByteIndex = (containerImgByteIndex*bitsPerByte)/8;
 					if(secretDataByteIndex>=secretData.length) {
 						stillData = false;
-						break; // Possibly continue depending on what happens next.
+						break;
 					}
 					byte secretDataMask = Integer.valueOf((1 << bitsPerByte) - 1).byteValue();
 					byte colorComponentMask = Integer.valueOf(~secretDataMask).byteValue();
-					byte secretDataSlice = Integer.valueOf((secretData[secretDataByteIndex] >> (secretSliceIndex*bitsPerByte)) & secretDataMask).byteValue();// wrong?
+					byte secretDataSlice = Integer.valueOf((secretData[secretDataByteIndex] >> (secretSliceIndex*bitsPerByte)) & secretDataMask).byteValue();
 					byte colorComponentSlice = Integer.valueOf(colorComponent & colorComponentMask).byteValue();
 					byte newColorComponent = Integer.valueOf(colorComponentSlice | secretDataSlice).byteValue();
 					// Now we must convert these color components back into a 32 bit integer which will actually be a 24 bit integer....
@@ -178,20 +164,11 @@ public class CS160FinalDietzKarbon {
 					int newPixelColorMask = ~newColorComponentMask;
 					newPixelColor = (newPixelColor & newPixelColorMask) | ((newColorComponent << colorComponentIndexShift) & newColorComponentMask);
 					secretSliceIndex++;
-					if(secretSliceIndex >= (8/bitsPerByte)) { //Can optimize this by having calc earlier.
+					if(secretSliceIndex >= (8/bitsPerByte)) {
 						secretSliceIndex=0;
 					}
-					/*System.out.print(containerImgByteIndex + "-" + secretDataByteIndex + " ");
-					System.out.print("Byte Were Encoding: " + Integer.toBinaryString(secretData[secretDataByteIndex] & 0xff)+"");
-					System.out.print("n" + Integer.toBinaryString(newColorComponent & 0xff)+"");
-					System.out.print("p" + Integer.toBinaryString(secretDataSlice & 0xff)+" ");
-					System.out.print(new String(new byte[]{Integer.valueOf(secretData[secretDataByteIndex] & 0xff).byteValue()}, StandardCharsets.US_ASCII)+" ");
-					System.out.print("Shift: " + Integer.toBinaryString(newColorComponentMask & 0xffffff) + " " + colorComponentIndexShift);
-					System.out.println();*/
-					//System.out.println(Integer.toBinaryString(newColorComponent & 0xff));
 				}
 				containerImg.setRGB(x,y,newPixelColor);
-				//System.out.println(Integer.toBinaryString(newPixelColor&0xffffff));
 			}
 		}
 		System.out.println("What file would you like to save this encoded PNG to?");
@@ -212,9 +189,7 @@ public class CS160FinalDietzKarbon {
 		int bytesPerPixel = (containerImg.getAlphaRaster() != null) ? 4 : 3;
 		int bytesOfStorage = (containerImg.getWidth() * containerImg.getHeight() * bytesPerPixel * bitsPerByte)/8; // Possibly add printing how much storage is available.
 		scnr.nextLine();
-		//System.out.println("Bytes of storage!:" + bytesOfStorage);
 		byte[] secretData = new byte[bytesOfStorage];
-		//Decode data
 		int currentPixelColor;
 		int secretDataShift = 0;
 		byte lastByte = 0x00;
@@ -229,17 +204,14 @@ public class CS160FinalDietzKarbon {
 					int colorComponentIndexShift = colorComponentIndex * 8;
 					byte colorComponent = Integer.valueOf(currentPixelColor >> (colorComponentIndex*8)).byteValue(); // This gets the color component by shifting the currentPixelColor integer 8*colorComponentIndex bits and then converting to a byte therebye cutting off the top 24 bits.
 					int containerImgByteIndex = (containerImgByteOffset+colorComponentIndex);
-					int secretDataByteIndex = (containerImgByteIndex*bitsPerByte)/8; // This should be the biggest number of the set and it is still not very close to overflow.
+					int secretDataByteIndex = (containerImgByteIndex*bitsPerByte)/8;
 					byte secretDataMask = Integer.valueOf((1<<bitsPerByte)-1).byteValue();
 					secretData[secretDataByteIndex] = Integer.valueOf(secretData[secretDataByteIndex] | ((colorComponent & secretDataMask)<<secretDataShift)).byteValue();
 					secretDataShift+=bitsPerByte;
 					if(secretDataShift>7) {
 						secretDataShift = 0;
-						// TO-DO: Fix terminator!
 						if(size>terminator.length) {
 							byte[] newArray = Arrays.copyOfRange(secretData,(size-terminator.length),size);
-							//System.out.println(new String(newArray, StandardCharsets.US_ASCII)); // Better to use the one above because does not write entire array stops when desired.
-							//System.out.println(newArray.length + " vs " + terminator.length);
 							if(Arrays.equals(newArray,terminator)) {
 								decoded = true;
 								size = size-terminator.length;
@@ -248,12 +220,7 @@ public class CS160FinalDietzKarbon {
 						}
 						size++;
 						lastByte = secretData[secretDataByteIndex];
-						// TO-DO: When writing to file or screen delay output by number of bytes required for terminator because then you wont end up writing the terminator itself to the file or screen.
-						//System.out.print(new String(new byte[]{secretData[secretDataByteIndex-2]}, StandardCharsets.US_ASCII));
 					}
-					//System.out.print(secretDataByteIndex + " " + containerImgByteIndex + " "); //DEBUG
-					//System.out.print(x + " " + y + " " + colorComponentIndex + " ");
-					//System.out.print(Integer.toBinaryString(secretData[secretDataByteIndex]) + "\n");
 				}
 			}
 		}
@@ -280,9 +247,6 @@ public class CS160FinalDietzKarbon {
 				choice = '!';
 			}
 		}
-		//System.out.println("DEBUG:" + size);
-		//System.out.println(new String(secretData, StandardCharsets.US_ASCII)); // Better to use the one above because does not write entire array stops when desired.
-		//System.out.println(decoded);
 	}
 	public static void main(String args[]) {
 		Scanner scnr = new Scanner(System.in);
