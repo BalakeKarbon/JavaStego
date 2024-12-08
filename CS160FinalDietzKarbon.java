@@ -167,12 +167,12 @@ public class CS160FinalDietzKarbon {
 		int secretDataShift = 0;
 		byte lastByte = 0x00;
 		boolean decoded = false;
-		for(int x = 0;x<containerImg.getWidth();x++) {
-			for(int y = 0;y<containerImg.getHeight();y++) {
+		for(int x = 0;x<containerImg.getWidth() && !decoded;x++) {
+			for(int y = 0;y<containerImg.getHeight() && !decoded;y++) {
 				int currentPixelOffset = (x*containerImg.getHeight())+y;
 				int containerImgByteOffset = currentPixelOffset*bytesPerPixel;
 				currentPixelColor = containerImg.getRGB(x,y);
-				for(int colorComponentIndex = 0;colorComponentIndex<bytesPerPixel;colorComponentIndex++) {
+				for(int colorComponentIndex = 0;colorComponentIndex<bytesPerPixel && !decoded;colorComponentIndex++) {
 					int colorComponentIndexShift = colorComponentIndex * 8;
 					byte colorComponent = Integer.valueOf(currentPixelColor >> (colorComponentIndex*8)).byteValue(); // This gets the color component by shifting the currentPixelColor integer 8*colorComponentIndex bits and then converting to a byte therebye cutting off the top 24 bits.
 					int containerImgByteIndex = (containerImgByteOffset+colorComponentIndex);
@@ -184,12 +184,11 @@ public class CS160FinalDietzKarbon {
 						secretDataShift = 0;
 						if(secretData[secretDataByteIndex] == 0x04 && lastByte == 0x04) {
 							decoded = true;
-							System.out.println("Decoded message:");
 							break;
 						}
 						lastByte = secretData[secretDataByteIndex];
 						// TO-DO: When writing to file or screen delay output by number of bytes required for terminator because then you wont end up writing the terminator itself to the file or screen.
-						//System.out.print(new String(new byte[]{lastByte}, StandardCharsets.US_ASCII));
+						System.out.print(new String(new byte[]{lastByte}, StandardCharsets.US_ASCII));
 					}
 					//System.out.print(secretDataByteIndex + " " + containerImgByteIndex + " "); //DEBUG
 					//System.out.print(x + " " + y + " " + colorComponentIndex + " ");
@@ -197,7 +196,7 @@ public class CS160FinalDietzKarbon {
 				}
 			}
 		}
-		System.out.println(new String(secretData, StandardCharsets.US_ASCII)); // Better to use the one above because does not write entire array stops when desired.
+		//System.out.println(new String(secretData, StandardCharsets.US_ASCII)); // Better to use the one above because does not write entire array stops when desired.
 		//System.out.println(decoded);
 	}
 	public static void main(String args[]) {
