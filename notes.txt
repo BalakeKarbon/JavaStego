@@ -22,3 +22,5 @@ But somehow were only setting the secretDataByteIndex up to 318037 before it exi
 When encoding numbers every number only appears once which is correct but it iterates through all bytes in image without getting full data.
 
 I think the encode AND decoder are both skipping something in the same way which makes the data come out correct but less dense which is strange.
+
+Somehow now doing a half encode it does not detect the terminator.

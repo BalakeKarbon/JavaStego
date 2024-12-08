@@ -1,6 +1,6 @@
 size = 0;
-limit = 9846720;
-#limit = 4923360;
+#limit = 9846720;
+limit = 4923360;
 #limit = 2461680;
 #limit = 1230840;
 i=0;
