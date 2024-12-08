@@ -34,6 +34,18 @@ public class CS160FinalDietzKarbon {
 				System.out.println("Only 8 bits per byte! Encoded bits must be value between 1 and 8 inclusive.");
 			} else {
 				foundBits = true;
+				switch(bitsPerByte) {
+					case 1:
+						break;
+					case 2:
+						break;
+					case 4:
+						break;
+					case 8:
+						break;
+					default:
+						foundBits = false;
+				}
 			}
 		}
 		return bitsPerByte;
@@ -89,7 +101,7 @@ public class CS160FinalDietzKarbon {
 	public static void stegEncode(Scanner scnr) {
 		System.out.println("What PNG would you like to store your secred data in?");
 		BufferedImage containerImg = getContainerImage(scnr);
-		System.out.println("How many bits per byte would you like to encode?");
+		System.out.println("How many bits per byte would you like to encode (Must be a power of 2)?");
 		int bitsPerByte = getBitsPerByte(scnr);
 		int bytesPerPixel = (containerImg.getAlphaRaster() != null) ? 4 : 3;
 		long bytesOfStorage = (containerImg.getWidth() * containerImg.getHeight() * bytesPerPixel * bitsPerByte)/8; // Possibly add printing how much storage is available.
@@ -162,7 +174,7 @@ public class CS160FinalDietzKarbon {
 					int colorComponentIndexShift = colorComponentIndex * 8;
 					byte colorComponent = Integer.valueOf(currentPixelColor >> (colorComponentIndex*8)).byteValue(); // This gets the color component by shifting the currentPixelColor integer 8*colorComponentIndex bits and then converting to a byte therebye cutting off the top 24 bits.
 					int containerImgByteIndex = (containerImgByteOffset+colorComponentIndex);
-					int secretDataByteIndex = (containerImgByteIndex*bitsPerByte)/8;
+					int secretDataByteIndex = (containerImgByteIndex*bitsPerByte)/8; // This should be the biggest number of the set and it is still not very close to overflow.
 					byte secretDataMask = Integer.valueOf((1<<bitsPerByte)-1).byteValue();
 					int containerImgIndex = containerImgByteOffset+colorComponentIndex;
 					secretData[secretDataByteIndex] = Integer.valueOf(secretData[secretDataByteIndex] | ((colorComponent & secretDataMask)<<secretDataShift)).byteValue();
@@ -175,11 +187,15 @@ public class CS160FinalDietzKarbon {
 							break;
 						}
 						lastByte = secretData[secretDataByteIndex];
+						// TO-DO: When writing to file or screen delay output by number of bytes required for terminator because then you wont end up writing the terminator itself to the file or screen.
+						//System.out.println(containerImgByteOffset);
+						//System.out.print(new String(new byte[]{lastByte}, StandardCharsets.US_ASCII));
 					}
 				}
 			}
 		}
-		System.out.println(new String(secretData, StandardCharsets.US_ASCII));
+		//System.out.println(decoded);
+		System.out.println(new String(secretData, StandardCharsets.US_ASCII)); // Better to use the one above because does not write entire array stops when desired.
 	}
 	public static void main(String args[]) {
 		Scanner scnr = new Scanner(System.in);
