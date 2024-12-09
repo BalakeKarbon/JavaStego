@@ -13,10 +13,13 @@ import java.util.InputMismatchException;
 import java.util.Arrays;
 
 public class KarbonDietzFinalProj {
-        //Creates a byte array named terminator that acts as a marker to signal the end of the secret message.
+    //Creates a byte array named terminator that acts as a marker to signal the end of the secret message.
     public static byte[] terminator = "END-OF-SECRET-DATA".getBytes(StandardCharsets.UTF_8);
-    //This method getContainerImage prompts the user for the name of the PNG that they want to hide secret data in.
-    //It then reads this file and stores it in the variable containerImg and returns that.
+    /*This method getContainerImage prompts the user for the name of the PNG that they want to hide secret data in.
+     * It then reads this file and stores it in the variable containerImg and returns that.
+     * It gets a path string from the user and then attempts to get a BufferedImage out of the specified path.
+     * It continue until successful then returns said BufferedImage.
+     */ 
     public static BufferedImage getContainerImage(Scanner scnr) {
         boolean fileAttained = false;
         String path;
@@ -36,7 +39,7 @@ public class KarbonDietzFinalProj {
     }
     /*Method getBitsPerByte prompts the user for a number between 8 and 1 inclusive that is a power of 2.
      * This number is the amount of bits per byte that the user would like to encode the file with or the bits per byte that were used in the file when decoding.
-     * Returned as the variable bitPerByte.
+     * Once successful, returns int bitsPerByte.
      */  
     public static int getBitsPerByte(Scanner scnr) {
         int bitsPerByte = 0;
@@ -67,13 +70,13 @@ public class KarbonDietzFinalProj {
         return bitsPerByte;
     }
     /*Byte array method getSecretFile is called if the user selects that they would like to write a file rather than text onto the image.
-     * Prompts the user for the path to the file and then reads the bytes for that file onto byte array secretData and returns secretData.
+     * Prompts the user for the path to the file and then reads the bytes for that file into byte array secretData and returns secretData.
      */
     public static byte[] getSecretFile(Scanner scnr) {
         boolean fileAttained = false;
         byte[] secretData = new byte[0];
         String path;
-        while(!fileAttained) {
+        while(!fileAttained) {//Again, this will continue until successful.
             System.out.print("Path:");
             path = scnr.nextLine();
             try {
@@ -86,6 +89,9 @@ public class KarbonDietzFinalProj {
         }
         return secretData;
     }
+    /*getSecretData is called in order to get byte array for storage inside of image.
+     *It will continue until successful.
+     */
     public static byte[] getSecretData(Scanner scnr,long bytesOfStorage) {
         boolean dataFits = false;
         byte[] secretData = new byte[0];
@@ -123,7 +129,7 @@ public class KarbonDietzFinalProj {
         }
         return secretData;
     }
-    //Writes the encoded image onto a new file with a user specified path.
+    //writeEncodedImage method is for writing encoded image onto a new file with a user specified path.
     public static void writeEncodedImage(Scanner scnr, BufferedImage containerImg) {
         boolean wroteImage = false;
         String path;
@@ -143,7 +149,7 @@ public class KarbonDietzFinalProj {
     }
     //Goes to method stegEncode if the user selects that they would like to encode an image rather than decode an image.
     public static void stegEncode(Scanner scnr) {
-            //Prompts the user for the path of the PNG they would like to store the secret data in and stores that in variable containerImg.
+        //Prompts the user for the path of the PNG they would like to store the secret data in and stores that in variable containerImg.
         System.out.println("What PNG would you like to store your secret data in?");
         BufferedImage containerImg = getContainerImage(scnr);
         System.out.println("How many bits per byte would you like to encode? (Must be a power of 2)");
@@ -157,7 +163,7 @@ public class KarbonDietzFinalProj {
         //Calculates the total number of bytes avaliable for storing secret data within the image.
         long bytesOfStorage = (containerImg.getWidth() * containerImg.getHeight() * bytesPerPixel * bitsPerByte)/8;
         //Empty scanner statement to clear up bugs due to unexpected results without it.
-        scnr.nextLine(); // Mention that this is due to weird scanner behavior.
+        scnr.nextLine(); //Clear the input buffer after getBitsPerbyte calls nextInt() method.
         //Calls method getSecretData to get the data that the user would like to encode.
         byte[] secretData = getSecretData(scnr, bytesOfStorage);
         int currentPixelColor, newPixelColor;
@@ -169,12 +175,12 @@ public class KarbonDietzFinalProj {
         for(int x = 0;x<containerImg.getWidth() && stillData;x++) {
                 //Iterates through each pixel, going row by row.
             for(int y = 0;y<containerImg.getHeight() && stillData;y++) {
-                int currentPixelOffset = (x*containerImg.getHeight())+y;
-                int containerImgByteOffset = currentPixelOffset*bytesPerPixel;
-                //currentPixelColor stores the pixel's color value.
+                int currentPixelOffset = (x*containerImg.getHeight())+y; //Gets pixel offset.
+                int containerImgByteOffset = currentPixelOffset*bytesPerPixel; //Gets containerImg byte offset.
+                //currentPixelColor stores the pixel's color value. Returned is a 32bit int even if only 24 bits (4 bytes) are used.
                 currentPixelColor = containerImg.getRGB(x,y);
                 newPixelColor = currentPixelColor & pixelColorMask;
-                                //Iterates through each color component within that pixel.
+                //Iterates through each color component within that pixel.
                 for(int colorComponentIndex = 0;colorComponentIndex<bytesPerPixel && stillData;colorComponentIndex++) {
                     int colorComponentIndexShift = colorComponentIndex * 8;
                     byte colorComponent = Integer.valueOf(currentPixelColor >> (colorComponentIndex*8)).byteValue(); // This gets the color component by shifting the currentPixelColor integer 8*colorComponentIndex bits and then converting to a byte therebye cutting off the top 24 bits.
@@ -191,7 +197,7 @@ public class KarbonDietzFinalProj {
                     byte secretDataSlice = Integer.valueOf((secretData[secretDataByteIndex] >> (secretSliceIndex*bitsPerByte)) & secretDataMask).byteValue();
                     byte colorComponentSlice = Integer.valueOf(colorComponent & colorComponentMask).byteValue();
                     byte newColorComponent = Integer.valueOf(colorComponentSlice | secretDataSlice).byteValue();
-                    // Now we must convert these color components back into a 32 bit integer which will actually be a 24 bit integer....
+                    // Now we must convert these color components back into a 32 bit integer which will actually be a 24 bit integer unless the Alpha channel exists....
                     int newColorComponentMask = (0xff << (colorComponentIndexShift));
                     int newPixelColorMask = ~newColorComponentMask;
                     //The selected bits from the secret data are combined with the original color component in this line.
@@ -202,16 +208,16 @@ public class KarbonDietzFinalProj {
                         secretSliceIndex=0;
                     }
                 }
-                //Modified pixel color is set back into the image.
+                //Modified pixel color is set back into the BufferedImage which we will write later..
                 containerImg.setRGB(x,y,newPixelColor);
             }
         }
         //Prompts the user for the path of the file that they would like to save the newly encoded PNG onto.
         System.out.println("What file would you like to save this encoded PNG to?");
-        writeEncodedImage(scnr, containerImg);
+        writeEncodedImage(scnr, containerImg); //Calls writeEncodedImage which will handle the rest.
     }
     //Method getOutputFile manages this prompt and returns the new OutputFileStream
-    public static FileOutputStream getOutputFile(Scanner scnr) throws IOException {
+    public static FileOutputStream getOutputFile(Scanner scnr) throws IOException { //Passes any exceptions onto the caller due to FileOutputStream constructor constraints.
         String path;
         System.out.print("Path:");
         path = scnr.nextLine();
@@ -219,28 +225,29 @@ public class KarbonDietzFinalProj {
         return fos;
     }
     //This is the decoding method if the user chooses to decode a message that already containss an image with a message written onto it with steganography.
+    //Much of the following method is like stegEncode, but due to some different inter loop implementation we have created a seperate method.
     public static void stegDecode(Scanner scnr) {
-            //Prompts the user for the name of the PNG that they would like to decode.
+        //Prompts the user for the name of the PNG that they would like to decode.
         System.out.println("What PNG would you like to decode?");
-        BufferedImage containerImg = getContainerImage(scnr);
-        //Asks for the number of bits per byte that were used while encoding and uses method getBitsPerByte to verify this.
+        BufferedImage containerImg = getContainerImage(scnr); //Gets the image we are decoding from.
+        //Asks for the number of bits per byte that were used while encoding through calling getBitsPerByte method.
         System.out.println("How many bits per byte were used during encoding?");
         int bitsPerByte = getBitsPerByte(scnr);
         //Checks for an alpha channel using the same linein the earlier method
         int bytesPerPixel = (containerImg.getAlphaRaster() != null) ? 4 : 3;
-        int bytesOfStorage = (containerImg.getWidth() * containerImg.getHeight() * bytesPerPixel * bitsPerByte)/8; // Possibly add printing how much storage is available.
-        scnr.nextLine();
-        byte[] secretData = new byte[bytesOfStorage];
+        int bytesOfStorage = (containerImg.getWidth() * containerImg.getHeight() * bytesPerPixel * bitsPerByte)/8; //Gets the maximum data that can be within encoded image.
+        scnr.nextLine(); //Clear the input buffer after getBitsPerByte calls nextInt() method.
+        byte[] secretData = new byte[bytesOfStorage]; //Allocate heap space for byte array of bytesOfStorage size.
+	//Variable setup for following decoding.
         int currentPixelColor;
-        int secretDataShift = 0;
-        byte lastByte = 0x00;
-        boolean decoded = false;
-        int size = 0;
+        int secretDataShift = 0; //Counter for bit shift within secret byte.
+        boolean decoded = false; //Decode flag used to brake out of loops early.
+        int size = 0; //Counter for bytes of decoded message.
         //Nested for loop that iterates through each pixel and extracts the secret data.
         for(int x = 0;x<containerImg.getWidth() && !decoded;x++) {
-                //Iterates through each pixel going row-by-row just like in the encoding method.  The decoded flag is used to break out of the loop early if all information has been extracted.
+            //Iterates through each pixel going row-by-row just like in the encoding method.  The decoded flag is used to break out of the loop early if all information has been extracted.
             for(int y = 0;y<containerImg.getHeight() && !decoded;y++) {
-                int currentPixelOffset = (x*containerImg.getHeight())+y;
+                int currentPixelOffset = (x*containerImg.getHeight())+y; //Same offsets and such as encode method.
                 int containerImgByteOffset = currentPixelOffset*bytesPerPixel;
                 //Calculates the offset of the current pixel within the image.
                 currentPixelColor = containerImg.getRGB(x,y);
@@ -253,19 +260,18 @@ public class KarbonDietzFinalProj {
                     byte secretDataMask = Integer.valueOf((1<<bitsPerByte)-1).byteValue();
                     secretData[secretDataByteIndex] = Integer.valueOf(secretData[secretDataByteIndex] | ((colorComponent & secretDataMask)<<secretDataShift)).byteValue();
                     secretDataShift+=bitsPerByte;
-                    //Terminator is used to find when all the data has been found and set decoded to true if it does so.
-                    if(secretDataShift>7) {
-                        secretDataShift = 0;
-                        if(size>terminator.length) {
-                            byte[] newArray = Arrays.copyOfRange(secretData,(size-terminator.length),size);
-                            if(Arrays.equals(newArray,terminator)) {
+                    if(secretDataShift>7) {//Once the shift is 8 (or more) we know were on the next byte.
+                        secretDataShift = 0;//Reset counter.
+                        if(size>terminator.length) {//Make sure were at least terminator.length bytes within secret data so we know we can compare the terminator.
+                    	    //Terminator is used to find when all the data has been found and set decoded to true if it does so.
+                            byte[] newArray = Arrays.copyOfRange(secretData,(size-terminator.length),size); //this byte array is a subsection of the last terminator.length bytes of the decoded byte array (secretData). This is what we will be comparing to in order to determine if we have reached the end of the decode.
+                            if(Arrays.equals(newArray,terminator)) { //If the terminator is found, subtract terminator from final size, set decoded flag, and exit loop.
                                 decoded = true;
                                 size = size-terminator.length;
                                 break;
                             }
                         }
-                        size++;
-                        lastByte = secretData[secretDataByteIndex];
+                        size++;//Every byte, increment size by one.
                     }
                 }
             }
@@ -277,13 +283,13 @@ public class KarbonDietzFinalProj {
             System.out.print("Enter \"f\" for file or \"t\" for text:");
             choice = scnr.nextLine().toLowerCase().charAt(0);
             if(choice == 't') {
-                    //Prints the decoded information
+                //Prints the decoded information
                 System.out.println("Decoded data:");
                 for(int i = 0;i<size;i++) {
-                    System.out.print(new String(new byte[]{secretData[i]}, StandardCharsets.US_ASCII));
+                    System.out.print(new String(new byte[]{secretData[i]}, StandardCharsets.US_ASCII)); //Prints current byte of secretData byte array decoded to UTF-8 using StandardCharsets.
                 }
             } else if(choice == 'f') {
-                        //Prints the decoded file to a new file.
+                //Prints the decoded file to a new file.
                 try {
                     FileOutputStream outputFileStream = getOutputFile(scnr);
                     for(int i = 0;i<size;i++) {
@@ -304,7 +310,7 @@ public class KarbonDietzFinalProj {
         Scanner scnr = new Scanner(System.in);
         System.out.println("Would you like to encode or decode a PNG?");
         char choice = '!';
-        while(choice == '!') {
+        while(choice == '!') { //Continues until valid response is recieved. In this case d for decode or e for encode.
             System.out.print("Enter \"e\" for encode or \"d\" for decode:");
             choice = scnr.nextLine().toLowerCase().charAt(0);
             if(choice == 'e') {
