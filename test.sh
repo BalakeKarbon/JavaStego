@@ -9,6 +9,6 @@
 #echo "d
 #out.png
 #8" > decode.txt
-javac CS160FinalDietzKarbon.java
-cat encode.txt | java CS160FinalDietzKarbon
-cat decode.txt | java CS160FinalDietzKarbon
+javac KarbonDietzFinalProj.java
+cat encode.txt | java KarbonDietzFinalProj
+cat decode.txt | java KarbonDietzFinalProj
