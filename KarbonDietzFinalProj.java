@@ -183,7 +183,7 @@ public class KarbonDietzFinalProj {
                 //Iterates through each color component within that pixel.
                 for(int colorComponentIndex = 0;colorComponentIndex<bytesPerPixel && stillData;colorComponentIndex++) {
                     int colorComponentIndexShift = colorComponentIndex * 8;
-                    byte colorComponent = Integer.valueOf(currentPixelColor >> (colorComponentIndex*8)).byteValue(); // This gets the color component by shifting the currentPixelColor integer 8*colorComponentIndex bits and then converting to a byte therebye cutting off the top 24 bits.
+                    byte colorComponent = Integer.valueOf(currentPixelColor >> colorComponentIndexShift).byteValue(); // This gets the color component by shifting the currentPixelColor integer 8*colorComponentIndex bits and then converting to a byte therebye cutting off the top 24 bits.
                     int containerImgByteIndex = (containerImgByteOffset+colorComponentIndex);
                     int secretDataByteIndex = (containerImgByteIndex*bitsPerByte)/8;
                     //This breaks the loop early if all secret data has been embedded.
@@ -254,7 +254,7 @@ public class KarbonDietzFinalProj {
                 //Iterates over each color component within the pixel
                 for(int colorComponentIndex = 0;colorComponentIndex<bytesPerPixel && !decoded;colorComponentIndex++) {
                     int colorComponentIndexShift = colorComponentIndex * 8;
-                    byte colorComponent = Integer.valueOf(currentPixelColor >> (colorComponentIndex*8)).byteValue(); // This gets the color component by shifting the currentPixelColor integer 8*colorComponentIndex bits and then converting to a byte therebye cutting off the top 24 bits.
+                    byte colorComponent = Integer.valueOf(currentPixelColor >> colorComponentIndexShift).byteValue(); // This gets the color component by shifting the currentPixelColor integer 8*colorComponentIndex bits and then converting to a byte therebye cutting off the top 24 bits.
                     int containerImgByteIndex = (containerImgByteOffset+colorComponentIndex);
                     int secretDataByteIndex = (containerImgByteIndex*bitsPerByte)/8;
                     byte secretDataMask = Integer.valueOf((1<<bitsPerByte)-1).byteValue();
