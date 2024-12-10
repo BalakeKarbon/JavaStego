@@ -12,7 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.InputMismatchException;
 import java.util.Arrays;
 
-public class KarbonDietzFinalProj {
+public class Stego {
     //Creates a byte array named terminator that acts as a marker to signal the end of the secret message.
     public static byte[] terminator = "END-OF-SECRET-DATA".getBytes(StandardCharsets.UTF_8);
     /*This method getContainerImage prompts the user for the name of the PNG that they want to hide secret data in.
