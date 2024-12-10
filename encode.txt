@@ -1,7 +1,0 @@
-e
-bike.png
-2
-f
-hello.bmp
-out.png
-

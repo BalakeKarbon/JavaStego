@@ -1,6 +1,0 @@
-d
-out.png
-2
-f
-out.bmp
-
