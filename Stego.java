@@ -140,7 +140,7 @@ public class Stego {
     }
     //showAvailableSpace prompts for an image and prints how many bytes it can hold at each valid bitsPerByte.
     public static void showAvailableSpace(Scanner scnr) {
-        System.out.println("What PNG would you like to check available space for?");
+        System.out.println("What image (PNG, JPG, or other common format) would you like to check available space for?");
         BufferedImage containerImg = getContainerImage(scnr);
         System.out.println("Available storage by bits per byte (usable bytes account for the "+terminator.length+"-byte terminator marker every encode reserves):");
         for(int bitsPerByte = 1;bitsPerByte<=8;bitsPerByte*=2) {
@@ -198,6 +198,12 @@ public class Stego {
         while(!wroteImage) {
             System.out.print("Path:");
             path = scnr.nextLine();
+            //The encoded data only survives a lossless format, so the output is always a PNG regardless of what
+            //the cover image was. If the given path doesn't already end in ".png", append it rather than write
+            //PNG bytes into a file named e.g. ".jpg", which would be misleading and could invite recompression.
+            if(!path.toLowerCase().endsWith(".png")) {
+                path = path+".png";
+            }
             try {
                 File outputFile = new File(path);
                 ImageIO.write(containerImg, "png", outputFile);
@@ -211,8 +217,8 @@ public class Stego {
     }
     //Goes to method stegEncode if the user selects that they would like to encode an image rather than decode an image.
     public static void stegEncode(Scanner scnr) {
-        //Prompts the user for the path of the PNG they would like to store the secret data in and stores that in variable containerImg.
-        System.out.println("What PNG would you like to store your secret data in?");
+        //Prompts the user for the path of the image they would like to store the secret data in and stores that in variable containerImg.
+        System.out.println("What image (PNG, JPG, or other common format) would you like to store your secret data in?");
         BufferedImage containerImg = getContainerImage(scnr);
         /*Declares integer variable bytesPerPixel and sets it based on if the image has an alpha channel.
          * If the image does have an alpha channel it determines that each pixel has four color components and makes bytesPerPixel = 4.
@@ -271,7 +277,7 @@ public class Stego {
             }
         }
         //Prompts the user for the path of the file that they would like to save the newly encoded PNG onto.
-        System.out.println("What file would you like to save this encoded PNG to?");
+        System.out.println("What file would you like to save this encoded PNG to? (Always saved as a lossless PNG, even if the cover image was a JPG.)");
         writeEncodedImage(scnr, containerImg); //Calls writeEncodedImage which will handle the rest.
     }
     //Method getOutputFile manages this prompt and returns the new OutputFileStream
@@ -285,8 +291,9 @@ public class Stego {
     //This is the decoding method if the user chooses to decode a message that already containss an image with a message written onto it with steganography.
     //Much of the following method is like stegEncode, but due to some different inter loop implementation we have created a seperate method.
     public static void stegDecode(Scanner scnr) {
-        //Prompts the user for the name of the PNG that they would like to decode.
-        System.out.println("What PNG would you like to decode?");
+        //Prompts the user for the name of the encoded image that they would like to decode. This must be the
+        //lossless PNG that stegEncode produced - a re-compressed JPG would have destroyed the hidden bits.
+        System.out.println("What encoded PNG would you like to decode?");
         BufferedImage containerImg = getContainerImage(scnr); //Gets the image we are decoding from.
         //Asks for the number of bits per byte that were used while encoding through calling getBitsPerByte method.
         System.out.println("How many bits per byte were used during encoding?");
@@ -317,8 +324,11 @@ public class Stego {
             secretDataShift+=bitsPerByte;
             if(secretDataShift>7) {//Once the shift is 8 (or more) we know were on the next byte.
                 secretDataShift = 0;//Reset counter.
-                if(size>terminator.length) {//Make sure were at least terminator.length bytes within secret data so we know we can compare the terminator.
+                size++;//The byte at index size-1 was just completed.
+                if(size>=terminator.length) {//Make sure we've decoded at least terminator.length bytes so we know we can compare the terminator.
                     //Terminator is used to find when all the data has been found and set decoded to true if it does so.
+                    //Includes the byte just completed above, otherwise a terminator ending on the very last
+                    //available byte (e.g. a payload that maxes out the image's capacity) would never be caught.
                     byte[] newArray = Arrays.copyOfRange(secretData,(size-terminator.length),size); //this byte array is a subsection of the last terminator.length bytes of the decoded byte array (secretData). This is what we will be comparing to in order to determine if we have reached the end of the decode.
                     if(Arrays.equals(newArray,terminator)) { //If the terminator is found, subtract terminator from final size, set decoded flag, and exit loop.
                         decoded = true;
@@ -326,7 +336,6 @@ public class Stego {
                         break;
                     }
                 }
-                size++;//Every byte, increment size by one.
             }
         }
         //Prompts the user if the data they want to decode is a file or text and uses a while loop to continuously prompt for a valid response.
