@@ -14,10 +14,102 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.security.GeneralSecurityException;
+import java.security.SecureRandom;
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
 
 public class Stego {
     //Creates a byte array named terminator that acts as a marker to signal the end of the secret message.
     public static byte[] terminator = "END-OF-SECRET-DATA".getBytes(StandardCharsets.UTF_8);
+    //Sizes (in bytes) of the pieces encryptData prepends to every ciphertext: a random salt for key
+    //derivation, then a random GCM nonce. GCM_TAG_LEN is the authentication tag doFinal appends to the
+    //ciphertext itself, not prepended, but is included here since it's overhead callers need to size for.
+    private static final int SALT_LEN = 16;
+    private static final int IV_LEN = 12;
+    private static final int GCM_TAG_LEN_BITS = 128;
+    private static final int GCM_TAG_LEN = GCM_TAG_LEN_BITS/8;
+    private static final int PBKDF2_ITERATIONS = 100000;
+    private static final int KEY_LEN_BITS = 256;
+    /*deriveKey stretches a user passphrase into an AES key via PBKDF2-HMAC-SHA256, salted so the same
+     * passphrase never produces the same key twice across different encodes.
+     */
+    private static SecretKey deriveKey(String passphrase, byte[] salt) throws GeneralSecurityException {
+        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+        PBEKeySpec spec = new PBEKeySpec(passphrase.toCharArray(), salt, PBKDF2_ITERATIONS, KEY_LEN_BITS);
+        SecretKey derived = factory.generateSecret(spec);
+        return new SecretKeySpec(derived.getEncoded(), "AES");
+    }
+    /*encryptData encrypts plaintext under a key derived from passphrase, using AES-256-GCM (which also
+     * authenticates the data, so a wrong passphrase or corrupted payload is detected on decrypt rather than
+     * silently producing garbage). A fresh random salt and nonce are generated per call and prepended to the
+     * ciphertext, since decrypt needs both back and nothing else is stored alongside the hidden data to
+     * supply them.
+     */
+    public static byte[] encryptData(byte[] plaintext, String passphrase) {
+        try {
+            SecureRandom random = new SecureRandom();
+            byte[] salt = new byte[SALT_LEN];
+            random.nextBytes(salt);
+            byte[] iv = new byte[IV_LEN];
+            random.nextBytes(iv);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, deriveKey(passphrase, salt), new GCMParameterSpec(GCM_TAG_LEN_BITS, iv));
+            byte[] ciphertext = cipher.doFinal(plaintext);
+            byte[] result = new byte[SALT_LEN+IV_LEN+ciphertext.length];
+            System.arraycopy(salt, 0, result, 0, SALT_LEN);
+            System.arraycopy(iv, 0, result, SALT_LEN, IV_LEN);
+            System.arraycopy(ciphertext, 0, result, SALT_LEN+IV_LEN, ciphertext.length);
+            return result;
+        } catch (GeneralSecurityException e) {
+            //AES/GCM and PBKDF2WithHmacSHA256 are both part of every standard JRE, so this only fires if the
+            //JVM's crypto providers are broken - not something the user can fix by retrying.
+            throw new RuntimeException("Encryption failed: "+e.getMessage(), e);
+        }
+    }
+    /*decryptData reverses encryptData: pulls the salt and nonce back off the front of encrypted, re-derives
+     * the key from passphrase, and decrypts+authenticates the rest. Throws GeneralSecurityException (most
+     * commonly AEADBadTagException) if the passphrase is wrong or the data was corrupted/truncated - this is
+     * an expected, recoverable failure mode, unlike encryptData's.
+     */
+    public static byte[] decryptData(byte[] encrypted, String passphrase) throws GeneralSecurityException {
+        byte[] salt = Arrays.copyOfRange(encrypted, 0, SALT_LEN);
+        byte[] iv = Arrays.copyOfRange(encrypted, SALT_LEN, SALT_LEN+IV_LEN);
+        byte[] ciphertext = Arrays.copyOfRange(encrypted, SALT_LEN+IV_LEN, encrypted.length);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, deriveKey(passphrase, salt), new GCMParameterSpec(GCM_TAG_LEN_BITS, iv));
+        return cipher.doFinal(ciphertext);
+    }
+    //Prompts for a passphrase. Echoed rather than masked, consistent with every other prompt in this class,
+    //and because System.console() (which would allow masking) is unavailable when input is piped/redirected.
+    public static String getPassphrase(Scanner scnr, String prompt) {
+        System.out.print(prompt);
+        return scnr.nextLine();
+    }
+    /*promptAndDecrypt repeatedly asks for the passphrase used at encode time and attempts decryption, so a
+     * mistyped passphrase can just be retried instead of aborting the whole decode. If encryptedData is too
+     * short to even contain the salt+nonce encryptData always prepends, no passphrase could ever work (wrong
+     * bits-per-byte, or an image with no hidden data at all), so this bails immediately instead of looping
+     * forever - returns null in that case.
+     */
+    public static byte[] promptAndDecrypt(Scanner scnr, byte[] encryptedData) {
+        if(encryptedData.length < SALT_LEN+IV_LEN) {
+            System.out.println("Only "+encryptedData.length+" byte(s) were decoded - not enough to contain encrypted data. Wrong bits-per-byte value, or this doesn't hold bulk/single-image stego data.");
+            return null;
+        }
+        while(true) {
+            String passphrase = getPassphrase(scnr, "Enter the passphrase used to encrypt this data:");
+            try {
+                return decryptData(encryptedData, passphrase);
+            } catch (GeneralSecurityException e) {
+                System.out.println("Decryption failed - wrong passphrase, or the decoded data is corrupted/incomplete. Please try again.");
+            }
+        }
+    }
     /*ImageInput is what getImageInput resolves a user-supplied path to: either a single loaded image, or a
      * whole directory's worth of readable images (with their backing files, filename-sorted) to operate on
      * as a group. Every mode - encode, decode, capacity - branches on isDirectory to decide which path to take.
@@ -177,7 +269,8 @@ public class Stego {
         return secretData;
     }
     /*getSecretData is called in order to get byte array for storage inside of image.
-     *It prompts the user for either a file or a piece of text, then appends the terminator marker.
+     *It prompts the user for either a file or a piece of text, encrypts it with a user-supplied passphrase,
+     *then appends the terminator marker.
      */
     public static byte[] getSecretData(Scanner scnr) {
         byte[] inputData = new byte[0];
@@ -198,9 +291,11 @@ public class Stego {
                 choice = '!';
             }
         }
-        byte[] secretData = new byte[inputData.length+terminator.length];
-        for(int i = 0;i<inputData.length;i++) {
-            secretData[i]=inputData[i];
+        String passphrase = getPassphrase(scnr, "Enter a passphrase to encrypt this data with (you'll need it again to decode):");
+        byte[] encryptedData = encryptData(inputData, passphrase);
+        byte[] secretData = new byte[encryptedData.length+terminator.length];
+        for(int i = 0;i<encryptedData.length;i++) {
+            secretData[i]=encryptedData[i];
         }
         for(int i = 0;i<terminator.length;i++) {
             secretData[(secretData.length-1)-i] = terminator[(terminator.length-1)-i];
@@ -540,10 +635,17 @@ public class Stego {
         FileOutputStream fos = new FileOutputStream(path);
         return fos;
     }
-    /*outputSecretData prompts the user for whether the first size bytes of secretData should be printed as
-     * text or written out to a file, and does so. Shared tail end of both single-image and bulk decode.
+    /*outputSecretData decrypts the first size bytes of secretData (the raw bytes just decoded from the
+     * image(s), which are the ciphertext encryptData produced at encode time) with a user-supplied passphrase,
+     * then prompts for whether the result should be printed as text or written out to a file. Shared tail end
+     * of both single-image and bulk decode.
      */
     public static void outputSecretData(Scanner scnr, byte[] secretData, int size) {
+        byte[] encryptedPayload = Arrays.copyOfRange(secretData, 0, size);
+        byte[] decryptedData = promptAndDecrypt(scnr, encryptedPayload);
+        if(decryptedData == null) {
+            return;
+        }
         System.out.println("Would you like to decode to a file or text?");
         char choice = '!';
         while(choice == '!') {
@@ -552,16 +654,16 @@ public class Stego {
             if(choice == 't') {
                 //Prints the decoded information
                 System.out.println("Decoded data:");
-                for(int i = 0;i<size;i++) {
-                    System.out.print(new String(new byte[]{secretData[i]}, StandardCharsets.US_ASCII)); //Prints current byte of secretData byte array decoded to UTF-8 using StandardCharsets.
+                for(int i = 0;i<decryptedData.length;i++) {
+                    System.out.print(new String(new byte[]{decryptedData[i]}, StandardCharsets.US_ASCII)); //Prints current byte of decryptedData byte array decoded to UTF-8 using StandardCharsets.
                 }
                 System.out.println();
             } else if(choice == 'f') {
                 //Prints the decoded file to a new file.
                 try {
                     FileOutputStream outputFileStream = getOutputFile(scnr);
-                    for(int i = 0;i<size;i++) {
-                        outputFileStream.write(secretData[i]);
+                    for(int i = 0;i<decryptedData.length;i++) {
+                        outputFileStream.write(decryptedData[i]);
                     }
                     outputFileStream.close();
                     System.out.println("Wrote decoded data to file!");

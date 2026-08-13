@@ -12,6 +12,13 @@ import tempfile
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BIT_DEPTHS = (1, 2, 4, 8)
+PASSPHRASE = "correct horse battery staple"
+# Stego.java now encrypts the payload (AES-256-GCM) before hiding it: a 16-byte salt and 12-byte
+# nonce get prepended to the ciphertext, and doFinal appends a 16-byte auth tag - 44 bytes of
+# overhead beyond the plaintext, on top of the existing terminator marker. The "usable" capacity
+# the program reports is capacity for that encrypted+terminated blob, so the actual plaintext file
+# we can write has to be smaller by this much to land at the same tier boundaries as before.
+ENCRYPTION_OVERHEAD = 16 + 12 + 16
 
 
 def run_stego(input_text):
@@ -68,16 +75,24 @@ def main():
             if bits == 8:
                 # Max out the image's overall capacity at the top tier, to exercise the
                 # boundary where every last usable byte (including the terminator) is used.
-                size = cap
+                target_encrypted = cap
             elif prev_usable == 0:
                 # Smallest payload that forces this depth: just over the previous tier's
                 # capacity (or a small fixed size for the first tier).
-                size = min(cap, 1000)
+                target_encrypted = min(cap, 1000)
             else:
-                size = prev_usable + 1
+                target_encrypted = prev_usable + 1
 
-            if size > cap:
+            if target_encrypted > cap:
                 print(f"{bits} bits per byte: SKIP (image too small to reach this depth)")
+                prev_usable = cap
+                continue
+
+            # target_encrypted is sized in terms of the encrypted+terminated blob; back out the
+            # encryption overhead to get the plaintext payload size that actually produces it.
+            size = target_encrypted - ENCRYPTION_OVERHEAD
+            if size < 0:
+                print(f"{bits} bits per byte: SKIP (image too small to cover encryption overhead at this depth)")
                 prev_usable = cap
                 continue
 
@@ -88,7 +103,7 @@ def main():
             with open(secret, "wb") as f:
                 f.write(os.urandom(size))
 
-            encode_log = run_stego(f"e\n{container}\nf\n{secret}\n{requested_encoded}\n")
+            encode_log = run_stego(f"e\n{container}\nf\n{secret}\n{PASSPHRASE}\n{requested_encoded}\n")
             used_bits_match = re.search(r"Using (\d+) bits per byte", encode_log)
             used_bits = used_bits_match.group(1) if used_bits_match else None
             encoded_match = re.search(r'Encoded PNG saved at "([^"]+)"', encode_log)
@@ -102,7 +117,7 @@ def main():
             if encoded:
                 encoded_files.append(encoded)
 
-            run_stego(f"d\n{encoded}\n{bits}\nf\n{decoded}\n")
+            run_stego(f"d\n{encoded}\n{bits}\n{PASSPHRASE}\nf\n{decoded}\n")
 
             data_matches = os.path.isfile(decoded) and open(secret, "rb").read() == open(decoded, "rb").read()
 
@@ -131,19 +146,19 @@ def main():
             for f in encoded_files:
                 shutil.copy(f, os.path.join(bulk_input_dir, os.path.basename(f)))
 
-            bulk_size = usable[1] + 1
+            bulk_size = usable[1] + 1 - ENCRYPTION_OVERHEAD
             bulk_secret = os.path.join(work_dir, "bulk_secret.bin")
             bulk_decoded = os.path.join(work_dir, "bulk_decoded.bin")
             with open(bulk_secret, "wb") as f:
                 f.write(os.urandom(bulk_size))
 
-            bulk_encode_log = run_stego(f"e\n{bulk_input_dir}\nf\n{bulk_secret}\n{bulk_output_dir}\n")
+            bulk_encode_log = run_stego(f"e\n{bulk_input_dir}\nf\n{bulk_secret}\n{PASSPHRASE}\n{bulk_output_dir}\n")
             bulk_bits_match = re.search(r"Using (\d+) bits per byte", bulk_encode_log)
             bulk_bits = bulk_bits_match.group(1) if bulk_bits_match else None
             images_used_match = re.search(r"Encoded data across (\d+) image", bulk_encode_log)
             images_used = int(images_used_match.group(1)) if images_used_match else 0
 
-            run_stego(f"d\n{bulk_output_dir}\n{bulk_bits or 1}\nf\n{bulk_decoded}\n")
+            run_stego(f"d\n{bulk_output_dir}\n{bulk_bits or 1}\n{PASSPHRASE}\nf\n{bulk_decoded}\n")
 
             bulk_data_matches = (
                 os.path.isfile(bulk_decoded)
