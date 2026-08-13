@@ -52,12 +52,17 @@ def main():
         capacity_output = run_stego(f"c\n{container}\n")
         usable = {}
         for bits in BIT_DEPTHS:
-            match = re.search(rf"^{bits} bits per byte: \d+ bytes total, (\d+) bytes usable$", capacity_output, re.MULTILINE)
+            # Capacity is printed as a pipe-delimited table: Bits/Byte | Bytes Total | Human Total
+            # | Bytes Usable | Human Usable. Match on the leading bits value and pull the Bytes
+            # Usable column (4th), skipping past Bytes Total/Human Total without caring how they're
+            # padded for alignment.
+            match = re.search(rf"^{bits}\s*\|[^|\n]*\|[^|\n]*\|\s*(\d+)\s*\|", capacity_output, re.MULTILINE)
             usable[bits] = int(match.group(1))
         print("Usable capacity: " + "  ".join(f"{bits}={usable[bits]}B" for bits in BIT_DEPTHS))
 
         all_passed = True
         prev_usable = 0
+        encoded_files = []
         for bits in BIT_DEPTHS:
             cap = usable[bits]
             if bits == 8:
@@ -94,6 +99,8 @@ def main():
             if encoded and encoded != requested_encoded:
                 shutil.move(encoded, requested_encoded)
                 encoded = requested_encoded
+            if encoded:
+                encoded_files.append(encoded)
 
             run_stego(f"d\n{encoded}\n{bits}\nf\n{decoded}\n")
 
@@ -107,6 +114,48 @@ def main():
                 all_passed = False
 
             prev_usable = cap
+
+        # Bulk round-trip: point the program at a directory instead of a single file, using
+        # the per-bit-depth images just produced above as the group of cover images. A payload
+        # sized just over one image's total (not just usable) capacity at 1 bit per byte forces
+        # it to spill from the first image into a second, exercising the actual multi-image
+        # spread/reassembly path rather than something that happens to fit in just one image.
+        if len(encoded_files) < 2 or usable[1] <= 0:
+            print("Bulk mode: SKIP (fewer than 2 single-image outputs above to build a group from)")
+        else:
+            bulk_input_dir = os.path.join(out_dir, "bulk_input")
+            bulk_output_dir = os.path.join(out_dir, "bulk_output")
+            shutil.rmtree(bulk_input_dir, ignore_errors=True)
+            shutil.rmtree(bulk_output_dir, ignore_errors=True)
+            os.makedirs(bulk_input_dir, exist_ok=True)
+            for f in encoded_files:
+                shutil.copy(f, os.path.join(bulk_input_dir, os.path.basename(f)))
+
+            bulk_size = usable[1] + 1
+            bulk_secret = os.path.join(work_dir, "bulk_secret.bin")
+            bulk_decoded = os.path.join(work_dir, "bulk_decoded.bin")
+            with open(bulk_secret, "wb") as f:
+                f.write(os.urandom(bulk_size))
+
+            bulk_encode_log = run_stego(f"e\n{bulk_input_dir}\nf\n{bulk_secret}\n{bulk_output_dir}\n")
+            bulk_bits_match = re.search(r"Using (\d+) bits per byte", bulk_encode_log)
+            bulk_bits = bulk_bits_match.group(1) if bulk_bits_match else None
+            images_used_match = re.search(r"Encoded data across (\d+) image", bulk_encode_log)
+            images_used = int(images_used_match.group(1)) if images_used_match else 0
+
+            run_stego(f"d\n{bulk_output_dir}\n{bulk_bits or 1}\nf\n{bulk_decoded}\n")
+
+            bulk_data_matches = (
+                os.path.isfile(bulk_decoded)
+                and open(bulk_secret, "rb").read() == open(bulk_decoded, "rb").read()
+            )
+
+            if bulk_bits == "1" and images_used >= 2 and bulk_data_matches:
+                print(f"Bulk mode (payload {bulk_size}B spread across {images_used} of {len(encoded_files)} images): PASS")
+            else:
+                print(f"Bulk mode (payload {bulk_size}B): FAIL "
+                      f"(encoder picked {bulk_bits or '?'} bits; images used: {images_used}; data match: {'yes' if bulk_data_matches else 'no'})")
+                all_passed = False
 
         if all_passed:
             print("All round-trip tests passed.")
