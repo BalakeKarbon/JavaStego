@@ -581,8 +581,8 @@ public class Stego {
             System.out.print("Path:");
             path = scnr.nextLine();
             //The encoded data only survives a lossless format, so the output is always a PNG regardless of what
-            //the cover image was. If the given path doesn't already end in ".png", append it rather than write
-            //PNG bytes into a file named e.g. ".jpg", which would be misleading and could invite recompression.
+            //the cover image was. If the given path doesn't already end in ".png", append it (stacking onto
+            //any existing extension, e.g. "cute.jpg" -> "cute.jpg.png") rather than swap it out.
             if(!path.toLowerCase().endsWith(".png")) {
                 path = path+".png";
             }
@@ -624,7 +624,7 @@ public class Stego {
         System.out.println("Using "+bitsPerByte+" bits per byte to encode this data. Remember this value - you will need it to decode the image!");
         encodeIntoImage(containerImg, secretData, 0, bitsPerByte);
         //Prompts the user for the path of the file that they would like to save the newly encoded PNG onto.
-        System.out.println("What file would you like to save this encoded PNG to? (Always saved as a lossless PNG, even if the cover image was a JPG.)");
+        System.out.println("What file would you like to save this encoded PNG to? (Always saved as a lossless PNG, even if the cover image was a JPG - \".png\" will be stacked onto whatever extension you give, e.g. \"cute.jpg\" -> \"cute.jpg.png\".)");
         writeEncodedImage(scnr, containerImg); //Calls writeEncodedImage which will handle the rest.
     }
     //Method getOutputFile manages this prompt and returns the new OutputFileStream
@@ -705,16 +705,16 @@ public class Stego {
         }
         outputSecretData(scnr, secretData, size);
     }
-    /*stripExtension removes a trailing ".ext" from a filename, if present, so bulk encode can rename cover
-     * files to ".png" without ending up with things like "photo.jpg.png".
+    /*stripExtension removes a trailing ".ext" from a filename, if present. Used by uniqueName to find the
+     * stem to append a numeric suffix to when disambiguating collisions.
      */
     public static String stripExtension(String name) {
         int dot = name.lastIndexOf('.');
         return (dot>0) ? name.substring(0,dot) : name;
     }
     /*uniqueName appends a numeric suffix to baseName until it no longer collides with a name already in
-     * usedNames, so that two source files that only differ by extension (e.g. "photo.jpg" and "photo.png")
-     * don't clobber each other once both are renamed to ".png" in the output directory.
+     * usedNames, so that two source files that would otherwise land on the same output filename (e.g. two
+     * files both named "photo.jpg" found in different subdirectories) don't clobber each other.
      */
     public static String uniqueName(String baseName, HashSet<String> usedNames) {
         if(usedNames.add(baseName)) {
@@ -747,7 +747,7 @@ public class Stego {
             System.out.println("Data does not fit within the combined available storage of all "+images.size()+" image(s), even at 8 bits per byte! Please choose a smaller file or shorter text.");
         }
         System.out.println("Using "+bitsPerByte+" bits per byte to encode this data across the image group. Remember this value - you will need it to decode!");
-        System.out.println("Where would you like to save the encoded images?");
+        System.out.println("Where would you like to save the encoded images? (Always saved as lossless PNGs, even if the cover images were JPGs - the filenames keep their original extension with \".png\" stacked onto the end.)");
         String outputDir = getOutputDirectoryPath(scnr);
         HashSet<String> usedNames = new HashSet<>();
         int startIndex = 0;
@@ -759,11 +759,11 @@ public class Stego {
                 continue; //This image has no capacity left to contribute at this bitsPerByte; leave it out of the output directory.
             }
             startIndex = newIndex;
-            String outName = uniqueName(stripExtension(files.get(i).getName())+".png", usedNames);
+            String outName = uniqueName(files.get(i).getName()+".png", usedNames);
             File outFile = new File(outputDir, outName);
             try {
                 ImageIO.write(img, "png", outFile);
-                System.out.println("Wrote \""+outFile.getPath()+"\"");
+                System.out.println("Wrote PNG \""+outFile.getPath()+"\"");
                 imagesUsed++;
             } catch (IOException e) {
                 System.out.println("Failed to write \""+outFile.getPath()+"\": "+e.getMessage());

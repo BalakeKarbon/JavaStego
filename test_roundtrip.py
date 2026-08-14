@@ -49,10 +49,9 @@ def main():
     try:
         # Name the requested output after the container's own extension (e.g. a .jpg
         # container gets icon_1bit.jpg requested). Stego.java always writes actual PNG
-        # bytes underneath - it force-appends ".png" itself when the requested name
-        # doesn't already end in .png - so the true saved path is parsed back out of its
-        # "Encoded PNG saved at ..." message below, then renamed back down to just the
-        # container's extension.
+        # bytes underneath and stacks ".png" onto whatever extension the requested name
+        # already had (e.g. "icon_1bit.jpg" -> "icon_1bit.jpg.png") - so the true saved
+        # path is parsed back out of its "Encoded PNG saved at ..." message below.
         container_base, container_ext = os.path.splitext(os.path.basename(container))
 
         # Ask the program for usable capacity (bytes, after terminator overhead) at each bitsPerByte.
@@ -108,12 +107,6 @@ def main():
             used_bits = used_bits_match.group(1) if used_bits_match else None
             encoded_match = re.search(r'Encoded PNG saved at "([^"]+)"', encode_log)
             encoded = encoded_match.group(1) if encoded_match else None
-
-            # Rename back down to just the container's extension so the saved file
-            # carries only that one extension.
-            if encoded and encoded != requested_encoded:
-                shutil.move(encoded, requested_encoded)
-                encoded = requested_encoded
             if encoded:
                 encoded_files.append(encoded)
 
